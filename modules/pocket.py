@@ -24,7 +24,7 @@ class PocketSource(DataSource):
                     'title': a_tag.get_text(strip=True),
                     'url': href,
                     'time_added': datetime.datetime.fromtimestamp(int(a_tag['time_added'])),
-                    'tags': a_tag['tags'].split(',')
+                    'tags': list(filter(None, a_tag['tags'].split(',')))
                 }
                 links.append(link_data)
         return links
