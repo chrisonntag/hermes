@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 import datetime
 import requests
 from typing import List, Dict, Optional
+from readabilipy import simple_json_from_html_string
 
 
 class Pocket(DataSource):
@@ -63,14 +64,23 @@ class Pocket(DataSource):
                 link_data = {
                     'title': a_tag.get_text(strip=True),
                     'url': href,
-                    'content': '',
+                    'content': '',  # Ensures that it's always a str type
                     'time_added': datetime.datetime.fromtimestamp(int(a_tag['time_added'])),
                     'tags': list(filter(None, a_tag['tags'].split(',')))
                 }
 
                 if follow_links:
                     content: Optional[str] = self.load_content(href)
-                    link_data['content'] = content
+
+                    if content is not None:
+                        readable_content: dict = simple_json_from_html_string(content, use_readability=True)
+
+                        if readable_content['plain_content'] is not None:
+                            link_data['content'] = readable_content['plain_content']
+                        else:
+                            # If there is no readable version, use the whole HTML page
+                            # TODO: Mixed HTMl/plain text entries could distort retrieval quality
+                            link_data['content'] = content
 
                 links.append(link_data)
         return links
