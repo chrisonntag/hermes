@@ -2,6 +2,7 @@ from .base import DataSource
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import datetime
+from typing import List, Dict
 
 
 class PocketSource(DataSource):
@@ -14,7 +15,7 @@ class PocketSource(DataSource):
     def __init__(self, name):
         self._name = name
 
-    def get_documents(self, html_content):
+    def get_documents(self, html_content) -> List[Dict]:
         links = []
         soup = BeautifulSoup(html_content, 'html.parser')
         for a_tag in soup.find_all('a'):

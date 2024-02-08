@@ -2,6 +2,8 @@ import argparse
 from pymongo import MongoClient
 from typing import Any, Dict, List, Optional
 from modules.pocket import PocketSource
+from embedding.base import HuggingFaceEmbedder
+from config import HERMES_CONFIG
 
 
 class MongoDBVectorStore():
@@ -83,10 +85,18 @@ def main():
             html_content = f.read()
         source: PocketSource = PocketSource("pocket")
         source_name: str = source.get_name()
-        documents: dict = source.get_documents(html_content)
+        documents: List[Dict] = source.get_documents(html_content)
+
+        # Cut documents for testing reasons
+        documents = documents[1:3]
 
         print("Create embeddings")
-        
+        embedded_documents = []
+        hf = HuggingFaceEmbedder(
+                access_token=HERMES_CONFIG["hf_access_token"], 
+                inference_url="hf_inference_endpoint") 
+        for doc in documents:
+            doc["vectorEmbedding"] = hf.generate(doc["title"])
 
         print("Add documents...")
         db.add(documents)
