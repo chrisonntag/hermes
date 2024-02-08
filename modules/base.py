@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 class DataSource(ABC):
     @abstractmethod
-    def get_documents(self):
+    def extract_documents(self):
         pass
 
     @abstractmethod
