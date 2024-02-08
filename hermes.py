@@ -1,5 +1,5 @@
 import argparse
-from pymongo import MongoClient
+import pymongo
 from typing import Any, Dict, List, Optional
 from modules.pocket import Pocket
 from embedding.base import HuggingFaceEmbedder
@@ -15,36 +15,32 @@ class MongoDBVectorStore():
         if mongodb_client is not None:
             self._client = mongodb_client
         else:
-            self._client: Dict = {}  # Change this to MongoClient()
+            mongo_uri: str = "mongodb://%s:%d/" % (HERMES_CONFIG['mongodb']['host'], HERMES_CONFIG['mongodb']['port'])
+            self._client: pymongo.MongoClient = pymongo.MongoClient(mongo_uri)
 
         self._db_name = db_name
-        self._client[db_name] = []  # Remove this on move to MongoClient
-        self._db: List[Dict] = self._client[db_name]
+        self._db = self._client[db_name]
 
-    def get(self, doc_ind: int) -> Dict:
+    def get(self, collection: str, query: dict) -> Optional[Dict]:
         """Get embedding."""
-        return self._db[doc_ind]
+        return self._db[collection].find_one(query)
 
-    def add(self, docs: List[Dict]) -> None:
+    def add(self, collection: str, docs: List[Dict]) -> pymongo.results.InsertManyResult:
         """Add docs to index."""
-        for doc in docs:
-            self._db.append(doc)
+        return self._db[collection].insert_many(docs)
 
-    def delete(self, doc_ind: str) -> None:
+    def delete(self, collection: str, query: dict) -> pymongo.results.DeleteResult:
         """ Delete nodes using with doc_ind."""
-        pass
+        return self._db[collection].delete_one(query)
 
-    def query(self, embedding: List[float]) -> List[Dict]:
+    def query(self, collection: str, query: dict) -> List[Dict]:
         """Get docs for response.
-        
-        Returns:
-            Dummy data
         """
-        return self._db[0:3]
+        return list(self._db[collection].find(query))
 
-    def persist(self, persist_path, fs=None) -> None:
-        """Persist the VectorStore."""
-        pass
+    def aggregate(self, pipeline: List[Dict]) -> List[Dict]:
+        return list(self._db[collection].aggregate(pipeline))
+
 
 class Hermes():
     def __init__(self, 
@@ -65,7 +61,8 @@ class Hermes():
         embedding: List[float] = [0.0, 0.1]
 
         print(f"Searching for '{query}' using {self._distance} distance...")
-        results: List[Dict] = self._store.query(embedding)
+        query_dict: dict = {'title': query}
+        results: List[Dict] = self._store.query("pocket", query_dict)
 
         return results
 
@@ -86,7 +83,7 @@ def fill_database(db: MongoDBVectorStore):
         doc["vectorEmbedding"] = hf.generate(doc["content"])
 
     print("Add documents...")
-    db.add(documents)
+    db.add("pocket", documents)
 
 def main():
     parser = argparse.ArgumentParser(description="Hermes vector search on local MongoDB")
