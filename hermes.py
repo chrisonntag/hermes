@@ -3,6 +3,7 @@ import pymongo
 from typing import Any, Dict, List, Optional
 from modules.pocket import Pocket
 from embedding.base import HuggingFaceEmbedder
+from aggregation import cosine
 from config import HERMES_CONFIG
 
 
@@ -38,7 +39,7 @@ class MongoDBVectorStore():
         """
         return list(self._db[collection].find(query))
 
-    def aggregate(self, pipeline: List[Dict]) -> List[Dict]:
+    def aggregate(self, collection: str, pipeline: List[Dict]) -> List[Dict]:
         return list(self._db[collection].aggregate(pipeline))
 
 
@@ -57,12 +58,20 @@ class Hermes():
         Args:
             query: str
         """
-        # Create the embedding
-        embedding: List[float] = [0.0, 0.1]
-
         print(f"Searching for '{query}' using {self._distance} distance...")
-        query_dict: dict = {'title': query}
-        results: List[Dict] = self._store.query("pocket", query_dict)
+        # Create the embedding
+        hf = HuggingFaceEmbedder(
+            access_token=HERMES_CONFIG["hf_access_token"], 
+            inference_url=HERMES_CONFIG["hf_inference_endpoint"]) 
+        query_embedding: List[float] = hf.generate(query)
+
+        query_pipeline = [
+            cosine.add_query_embedding_stage(query_embedding),
+            cosine.calculate_cos_sim_params_stage(),
+            cosine.calculate_cos_sim_stage(),
+            cosine.filter_cos_sim_threshold_stage(0)
+        ]
+        results: List[Dict] = self._store.aggregate("pocket", query_pipeline)
 
         return results
 
