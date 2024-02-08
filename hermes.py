@@ -1,7 +1,7 @@
 import argparse
 from pymongo import MongoClient
 from typing import Any, Dict, List, Optional
-from modules.pocket import PocketSource
+from modules.pocket import Pocket
 from embedding.base import HuggingFaceEmbedder
 from config import HERMES_CONFIG
 
@@ -73,19 +73,17 @@ def fill_database(db: MongoDBVectorStore):
     print("Load documents")
     with open('data/ril_export.html', 'r', encoding='utf-8') as f:
         html_content = f.read()
-    source: PocketSource = PocketSource("pocket")
-    source_name: str = source.get_name()
-    documents: List[Dict] = source.get_documents(html_content)
-
-    # Cut documents for testing reasons
-    documents = documents[1:3]
+    source: DataSource = Pocket("pocket")
+    documents: List[Dict] = source.extract_documents(html_content, stop_after=3, follow_links=True)
 
     print("Create embeddings")
     hf = HuggingFaceEmbedder(
             access_token=HERMES_CONFIG["hf_access_token"], 
             inference_url=HERMES_CONFIG["hf_inference_endpoint"]) 
     for doc in documents:
-        doc["vectorEmbedding"] = hf.generate(doc["title"])
+        # Choose which information should be embedded.
+        # Load whole HTMl page of link. 
+        doc["vectorEmbedding"] = hf.generate(doc["content"])
 
     print("Add documents...")
     db.add(documents)
