@@ -69,6 +69,26 @@ class Hermes():
 
         return results
 
+def fill_database(db: MongoDBVectorStore):
+    print("Load documents")
+    with open('data/ril_export.html', 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    source: PocketSource = PocketSource("pocket")
+    source_name: str = source.get_name()
+    documents: List[Dict] = source.get_documents(html_content)
+
+    # Cut documents for testing reasons
+    documents = documents[1:3]
+
+    print("Create embeddings")
+    hf = HuggingFaceEmbedder(
+            access_token=HERMES_CONFIG["hf_access_token"], 
+            inference_url=HERMES_CONFIG["hf_inference_endpoint"]) 
+    for doc in documents:
+        doc["vectorEmbedding"] = hf.generate(doc["title"])
+
+    print("Add documents...")
+    db.add(documents)
 
 def main():
     parser = argparse.ArgumentParser(description="Hermes vector search on local MongoDB")
@@ -80,27 +100,8 @@ def main():
     db = MongoDBVectorStore(db_name = "documents")
 
     if args.fill:
-        print("Load documents")
-        with open('data/ril_export.html', 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        source: PocketSource = PocketSource("pocket")
-        source_name: str = source.get_name()
-        documents: List[Dict] = source.get_documents(html_content)
-
-        # Cut documents for testing reasons
-        documents = documents[1:3]
-
-        print("Create embeddings")
-        embedded_documents = []
-        hf = HuggingFaceEmbedder(
-                access_token=HERMES_CONFIG["hf_access_token"], 
-                inference_url="hf_inference_endpoint") 
-        for doc in documents:
-            doc["vectorEmbedding"] = hf.generate(doc["title"])
-
-        print("Add documents...")
-        db.add(documents)
-
+        fill_database(db)
+        
     hermes = Hermes(vector_store=db, distance=args.distance)
     results = hermes.search(args.query)
 
