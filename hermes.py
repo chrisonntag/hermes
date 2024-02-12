@@ -3,7 +3,7 @@ import pymongo
 from typing import Any, Dict, List, Optional
 from modules.pocket import Pocket
 from embedding.base import HuggingFaceEmbedder
-from aggregation import cosine
+from aggregation.cosine import CosineSimilarityPipeline
 from config import HERMES_CONFIG
 
 
@@ -65,12 +65,7 @@ class Hermes():
             inference_url=HERMES_CONFIG["hf_inference_endpoint"]) 
         query_embedding: List[float] = hf.generate(query)
 
-        query_pipeline = [
-            cosine.add_query_embedding_stage(query_embedding),
-            cosine.calculate_cos_sim_params_stage(),
-            cosine.calculate_cos_sim_stage(),
-            cosine.filter_cos_sim_threshold_stage(0)
-        ]
+        query_pipeline = CosineSimilarityPipeline(0.0).build_pipeline(query_embedding)
         results: List[Dict] = self._store.aggregate("pocket", query_pipeline)
 
         return results
