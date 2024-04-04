@@ -1,11 +1,12 @@
+import requests
 from abc import ABC, abstractmethod
 from typing import List
-import requests
+from sentence_transformers import SentenceTransformer
 
 
 class BaseEmbedder(ABC):
     @abstractmethod
-    def generate(self):
+    def embed(self):
         pass
 
 
@@ -19,9 +20,17 @@ class HuggingFaceEmbedder(BaseEmbedder):
         self._token = access_token
         self._endpoint = inference_url
 
-    def generate(self, text: str) -> List[float]:
+    def embed(self, text: str) -> List[float]:
         res = requests.post(self._endpoint, headers={"Authorization": f"Bearer {self._token}"}, json={"inputs": text})
 
         if res.status_code != 200:
             raise ValueError(f"Request failed with status code {res.status_code}: {res.text}")
         return res.json()
+
+
+class SentenceTransformerEmbedder(BaseEmbedder):
+    def __init__(self, model_name: str):
+        self._model = SentenceTransformer(model_name)
+
+    def embed(self, text: str) -> List[float]:
+        return self._model.encode(text).tolist()
