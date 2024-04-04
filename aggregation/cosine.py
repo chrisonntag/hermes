@@ -3,15 +3,18 @@ from .base import BasePipeline
 
 
 class CosineSimilarityPipeline(BasePipeline):
-    def __init__(self, threshold: float):
+    def __init__(self, threshold: float = 0.5, k: int = 3):
         self._threshold = threshold
+        self._k = k
 
-    def build_pipeline(self, query_embedding: List[float]):
+    def build_pipeline(self, embedding_field_name: str, query_embedding: List[float]):
         pipeline = [
             self.add_query_embedding_stage(query_embedding),
-            self.calculate_cos_sim_params_stage(),
+            self.calculate_cos_sim_params_stage(embedding_field_name),
             self.calculate_cos_sim_stage(),
-            self.filter_cos_sim_threshold_stage(self._threshold)
+            self.filter_cos_sim_threshold_stage(self._threshold),
+            {"$sort": {"cos_similarity": -1}},
+            {"$limit": self._k}
         ]
         return pipeline
 
@@ -35,7 +38,7 @@ class CosineSimilarityPipeline(BasePipeline):
             }
         }
 
-    def calculate_cos_sim_params_stage(self):
+    def calculate_cos_sim_params_stage(self, embedding_field_name: str):
         """Reduce the query embedding and each stored vector embedding
         to the dot product and the sums of squares of the document and 
         the query embeddings.
@@ -45,7 +48,7 @@ class CosineSimilarityPipeline(BasePipeline):
                 "title": 1,
                 "cos_similarity_params": {
                     "$reduce": {
-                        "input": {"$range": [0, {"$size": "$vectorEmbedding"}]},
+                        "input": {"$range": [0, {"$size": f"${embedding_field_name}"}]},
                         "initialValue": {
                             "dot_product": 0,
                             "doc_squared_sum": 0,
@@ -54,7 +57,7 @@ class CosineSimilarityPipeline(BasePipeline):
                         "in": {
                             "$let": {
                                 "vars": {
-                                    "doc_embedding": {"$arrayElemAt": ["$vectorEmbedding", "$$this"]},
+                                    "doc_embedding": {"$arrayElemAt": [f"${embedding_field_name}", "$$this"]},
                                     "query_embedding": {"$arrayElemAt": ["$query_embedding", "$$this"]}
                                 },
                                 "in": {
