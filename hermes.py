@@ -24,6 +24,10 @@ class MongoDBVectorStore():
         self._db_name = db_name
         self._db = self._client[db_name]
 
+    def create_vector_index(self, collection, field_name):
+        """Create a 2D index for the given field_name."""
+        self._db[collection].create_index([(field_name, 1)])
+
     def get(self, collection: str, query: dict) -> Optional[Dict]:
         """Get embedding."""
         return self._db[collection].find_one(query)
@@ -93,7 +97,9 @@ def main():
     if args.fill:
         print("Fill the database with dummy data")
         fill_database_embedded_movies(db, "movies")
-        
+
+    db.create_vector_index("movies", "plot_embedding")
+
     hermes = Hermes(vector_store=db, collection_name="movies", embedding_field_name="plot_embedding", distance=args.distance, embedder=SentenceTransformerEmbedder(HERMES_CONFIG['embedder_identifier']))
 
     start_time = time.time()
