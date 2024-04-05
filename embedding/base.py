@@ -5,6 +5,8 @@ from sentence_transformers import SentenceTransformer
 
 
 class BaseEmbedder(ABC):
+    """Interface for embedding models – Embedders"""
+
     @abstractmethod
     def embed(self):
         pass

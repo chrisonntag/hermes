@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from modules.pocket import Pocket
 from embedding.base import HuggingFaceEmbedder, BaseEmbedder, SentenceTransformerEmbedder
 from helpers import fill_database_embedded_movies
-from aggregation.cosine import CosineSimilarityPipeline
+from aggregation.factory import SimilarityPipelineFactory
 from config import HERMES_CONFIG
 
 
@@ -74,7 +74,8 @@ class Hermes():
         # Create the embedding 
         query_embedding: List[float] = self._embedder.embed(query)
 
-        query_pipeline = CosineSimilarityPipeline(threshold=0.6, k=4).build_pipeline(self._embedding_field_name, query_embedding)
+        pipeline_builder = SimilarityPipelineFactory.get_pipeline(self._distance)
+        query_pipeline = pipeline_builder.build_pipeline(self._embedding_field_name, query_embedding)
         results: List[Dict] = self._store.aggregate(self._collection_name, query_pipeline)
 
         return results
@@ -90,6 +91,7 @@ def main():
     db = MongoDBVectorStore(db_name = "documents")
 
     if args.fill:
+        print("Fill the database with dummy data")
         fill_database_embedded_movies(db, "movies")
         
     hermes = Hermes(vector_store=db, collection_name="movies", embedding_field_name="plot_embedding", distance=args.distance, embedder=SentenceTransformerEmbedder(HERMES_CONFIG['embedder_identifier']))

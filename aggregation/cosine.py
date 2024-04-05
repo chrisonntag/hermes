@@ -1,8 +1,8 @@
 from typing import List
-from .base import BasePipeline
+from .base import BaseSimilarityPipeline
 
 
-class CosineSimilarityPipeline(BasePipeline):
+class CosineSimilarityPipeline(BaseSimilarityPipeline):
     def __init__(self, threshold: float = 0.5, k: int = 3):
         self._threshold = threshold
         self._k = k
@@ -12,31 +12,11 @@ class CosineSimilarityPipeline(BasePipeline):
             self.add_query_embedding_stage(query_embedding),
             self.calculate_cos_sim_params_stage(embedding_field_name),
             self.calculate_cos_sim_stage(),
-            self.filter_cos_sim_threshold_stage(self._threshold),
-            {"$sort": {"cos_similarity": -1}},
-            {"$limit": self._k}
+            self.filter_threshold_stage("cos_similarity", self._threshold),
+            self.sort_stage("cos_similarity"),
+            self.limit_stage(self._k)
         ]
-        return pipeline
-
-    def add_query_embedding_stage(self, query_embedding: List[float]):
-        """Add the embedding of the query as a field to each document 
-        in the collection.
-        """
-        return {
-            "$addFields": {
-                "query_embedding": query_embedding
-            }
-        }
-
-    def filter_cos_sim_threshold_stage(self, threshold: float):
-        """Matches the field cos_sim to include all documents 
-        with similarity greater than a given threshold. 
-        """
-        return {
-            "$match": {
-                "cos_similarity": {"$gt": threshold}
-            }
-        }
+        return pipeline 
 
     def calculate_cos_sim_params_stage(self, embedding_field_name: str):
         """Reduce the query embedding and each stored vector embedding
